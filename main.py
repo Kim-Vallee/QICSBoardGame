@@ -5,6 +5,7 @@ from typing import Callable, List
 import numpy as np
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QWidget, QLabel, QMenu
 
 import stylesheet
@@ -42,8 +43,7 @@ class Singleton(type):
 
 class Game(metaclass=Singleton):
     def __init__(self):
-        self.player1_hand = []
-        self.player2_hand = []
+        self.hands = [[], []]
 
         self.board_content = []
 
@@ -58,6 +58,7 @@ class Game(metaclass=Singleton):
             "SY": ["-i", "+i"],
             "SZ": ["0", "1"],
         }
+
         self.opposite_state = {
             "0": "1",
             "1": "0",
@@ -66,6 +67,7 @@ class Game(metaclass=Singleton):
             "-i": "+i",
             "+i": "-i",
         }
+
         self.state_to_axis = {
             "0": "Z",
             "1": "Z",
@@ -76,23 +78,23 @@ class Game(metaclass=Singleton):
         }
 
         self.turn = 0
+        self.objectives = []
+        self.setup()
+
+    def setup(self):
+        # Prepare hands
+        self.hands[0] = random.choices(self.operations, k=NB_CARDS_HAND)
+        self.hands[1] = random.choices(self.operations, k=NB_CARDS_HAND)
+
+        # Prepare objectives
+        self.objectives.append(random.choices(self.operations, k=2))
+        self.objectives.append(random.choices(self.operations, k=2))
 
     def get_hand(self, player: int) -> List[str]:
-        if player == 1:
-            if not self.player1_hand:
-                self.player1_hand = random.choices(self.operations, k=NB_CARDS_HAND)
-            return self.player1_hand
-
-        elif player == 2:
-            if not self.player2_hand:
-                self.player2_hand = random.choices(self.operations, k=NB_CARDS_HAND)
-            return self.player2_hand
+        return self.hands[player - 1]
 
     def replace_card(self, pos: int, player: int):
-        if player == 1:
-            self.player1_hand[pos] = random.choice(self.operations)
-        elif player == 2:
-            self.player2_hand[pos] = random.choice(self.operations)
+        self.hands[player - 1][pos] = random.choice(self.operations)
 
     def apply_rotation(self, rotation: str, qubit: int):
         qubit_state = self.state[qubit]
@@ -124,10 +126,10 @@ class Slot(QtWidgets.QFrame):
         self.content = None
         self.master = master
 
-    def set_content(self, content: str):
+    def set_content(self, content: str, fontsize: int = 20):
         self.content = QLabel(self)
         self.content.setGeometry(0, 0, SLOT_WIDTH, SLOT_HEIGHT)
-        self.content.setFont(stylesheet.CONTENT_FONT)
+        self.content.setFont(QFont("Arial", fontsize))
         self.content.setStyleSheet(stylesheet.FONT_STYLE_CONTENT)
         self.content.setAlignment(Qt.AlignCenter)
         self.content.setText(content)
@@ -167,8 +169,6 @@ class Board(QtWidgets.QFrame):
             qbit.set_content(game.state[i])
 
 
-
-
 class TitleBar(QtWidgets.QFrame):
     def __init__(self, master: QWidget, window_close_fn: Callable, window: QtWidgets.QMainWindow) -> None:
         super(TitleBar, self).__init__(master)
@@ -201,12 +201,12 @@ class HandFrame(QtWidgets.QFrame):
     def __init__(self, master: QWidget, player: int) -> None:
         super(HandFrame, self).__init__(master)
         self.hand_slots = []
+        self.master = master
+        self.player = player
 
         # Computing the center
         width = NB_CARDS_HAND * (SLOT_WIDTH + SLOT_MARGIN) + SLOT_MARGIN
         offset = (master.width() - width) // 2
-
-        self.player = player
 
         for i in range(NB_CARDS_HAND):
             self.hand_slots.append(
@@ -222,12 +222,20 @@ class HandFrame(QtWidgets.QFrame):
             menu.addAction("Play on 2nd qubit", fc2)
             self.hand_slots[i].setMenu(menu)
 
+        # Adding the objective on the right
+        self.objectives = [
+            Slot(self, offset + width + SLOT_MARGIN, 0, SLOT_HEIGHT // 2, SLOT_HEIGHT // 2),
+            Slot(self, offset + width + SLOT_MARGIN, SLOT_MARGIN + SLOT_HEIGHT // 2, SLOT_HEIGHT // 2, SLOT_HEIGHT // 2)
+        ]
+
     def show(self) -> None:
         super(HandFrame, self).show()
         self.update_hand()
 
     def update_hand(self):
         game = Game()
+
+        # Update the hand
         hand = game.get_hand(self.player)
         for i, card in enumerate(self.hand_slots):
             card.setText(hand[i])
@@ -253,9 +261,7 @@ class HandFrame(QtWidgets.QFrame):
         win = UiMainWindow.instance
         self.update_hand()
         win.board.update_board()
-
-
-
+        self.master.player_choice_frame()
 
 
 class PlayerChoiceFrame(QtWidgets.QFrame):
