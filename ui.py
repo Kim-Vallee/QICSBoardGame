@@ -42,6 +42,11 @@ class Button(QtWidgets.QPushButton):
         self.setStyleSheet(stylesheet.DEFAULT_BUTTON)
         self.clicked.connect(callback)
 
+    def update_callback(self, callback: Callable) -> None:
+        self.clicked.disconnect()
+        self.clicked.connect(callback)
+
+
 class Entry(QtWidgets.QLineEdit):
     def __init__(self, master: QWidget, height: int) -> None:
         super().__init__(master)

@@ -1,5 +1,6 @@
 import random
 import sys
+from abc import abstractmethod
 from typing import Callable, List
 
 import numpy as np
@@ -32,6 +33,12 @@ UI_BUTTONS_WIDTH = BOARD_WIDTH
 NB_CARDS_HAND = 5
 
 
+class AbstractObserverUI:
+    @abstractmethod
+    def update_ui(self, *args, **kwargs):
+        pass
+
+
 class Singleton(type):
     _instances = {}
 
@@ -50,6 +57,7 @@ class Game(metaclass=Singleton):
         self.state = ["0", "0"]
 
         self.operations = ["X", "Y", "Z", "SX", "SY", "SZ"]
+        self.states = ["0", "1", "+", "-", "-i", "+i"]
         self.basis = {
             "X": ["+", "-"],
             "Y": ["-i", "+i"],
@@ -87,8 +95,8 @@ class Game(metaclass=Singleton):
         self.hands[1] = random.choices(self.operations, k=NB_CARDS_HAND)
 
         # Prepare objectives
-        self.objectives.append(random.choices(self.operations, k=2))
-        self.objectives.append(random.choices(self.operations, k=2))
+        self.objectives.append(random.choices(self.states, k=2))
+        self.objectives.append(random.choices(self.states, k=2))
 
     def get_hand(self, player: int) -> List[str]:
         return self.hands[player - 1]
@@ -116,19 +124,49 @@ class Game(metaclass=Singleton):
             if axis not in [curr_axis, rotation_axis]:
                 self.state[qubit] = self.basis[axis][self.basis[curr_axis].index(qubit_state)]
 
+    def play_turn(self, player: int, card_pos: int, qubit: int, callback: Callable):
+        # Get the player's hand and card
+        card = self.get_hand(player)[card_pos]
+
+        # Play the card and increase the turn
+        self.board_content.append((card, qubit))
+        self.turn += 1
+
+        # Update the hand
+        self.replace_card(card_pos, player)
+
+        # Update the state
+        self.apply_rotation(card, qubit)
+
+        callback()
+
+    def check_win(self) -> int:
+        """
+        Check if the game is won
+        :return: 0 if not, 1 if player 1 won, 2 if player 2 won
+        """
+        if self.state == self.objectives[0]:
+            return 1
+        elif self.state == self.objectives[1]:
+            return 2
+        return 0
+
 
 class Slot(QtWidgets.QFrame):
     def __init__(self, master: QWidget, x: int, y: int, width: int, height: int) -> None:
         super(Slot, self).__init__(master)
 
         self.setGeometry(QtCore.QRect(x, y, width, height))
+        self.width = width
+        self.height = height
+
         self.setStyleSheet(stylesheet.SLOTS)
         self.content = None
         self.master = master
 
     def set_content(self, content: str, fontsize: int = 20):
         self.content = QLabel(self)
-        self.content.setGeometry(0, 0, SLOT_WIDTH, SLOT_HEIGHT)
+        self.content.setGeometry(0, 0, self.width, self.height)
         self.content.setFont(QFont("Arial", fontsize))
         self.content.setStyleSheet(stylesheet.FONT_STYLE_CONTENT)
         self.content.setAlignment(Qt.AlignCenter)
@@ -136,7 +174,7 @@ class Slot(QtWidgets.QFrame):
         self.content.show()
 
 
-class Board(QtWidgets.QFrame):
+class Board(QtWidgets.QFrame, AbstractObserverUI):
     def __init__(self, master: QWidget) -> None:
         super().__init__(master)
 
@@ -160,7 +198,7 @@ class Board(QtWidgets.QFrame):
         for i, qbit in enumerate(self.qubits):
             qbit.set_content(game.state[i])
 
-    def update_board(self):
+    def update_ui(self):
         game = Game()
         for i, (card, qubit) in enumerate(game.board_content):
             self.slots[i][qubit].set_content(card)
@@ -195,7 +233,7 @@ class TitleBar(QtWidgets.QFrame):
         self.oldPos = event.globalPos()
 
 
-class HandFrame(QtWidgets.QFrame):
+class HandFrame(QtWidgets.QFrame, AbstractObserverUI):
     """Class for the hand of the player"""
 
     def __init__(self, master: QWidget, player: int) -> None:
@@ -208,16 +246,19 @@ class HandFrame(QtWidgets.QFrame):
         width = NB_CARDS_HAND * (SLOT_WIDTH + SLOT_MARGIN) + SLOT_MARGIN
         offset = (master.width() - width) // 2
 
+        game = Game()
+        win = UiMainWindow.instance
+
         for i in range(NB_CARDS_HAND):
             self.hand_slots.append(
-                Button(self, "", lambda *args: self.play_card(i, *args),
+                Button(self, "", lambda: 0,
                        offset + i * (SLOT_WIDTH + SLOT_MARGIN) + SLOT_MARGIN,
                        SLOT_MARGIN,
                        SLOT_WIDTH,
                        SLOT_HEIGHT))
             menu = QMenu(f'Card {i}, player {player}')
-            fc = lambda i=i: self.play_card(0, i)
-            fc2 = lambda i=i: self.play_card(1, i)
+            fc = lambda i=i: game.play_turn(self.player, i, 0, win.send_signal)
+            fc2 = lambda i=i: game.play_turn(self.player, i, 1, win.send_signal)
             menu.addAction("Play on 1st qubit", fc)
             menu.addAction("Play on 2nd qubit", fc2)
             self.hand_slots[i].setMenu(menu)
@@ -230,9 +271,9 @@ class HandFrame(QtWidgets.QFrame):
 
     def show(self) -> None:
         super(HandFrame, self).show()
-        self.update_hand()
+        self.update_ui()
 
-    def update_hand(self):
+    def update_ui(self):
         game = Game()
 
         # Update the hand
@@ -240,28 +281,9 @@ class HandFrame(QtWidgets.QFrame):
         for i, card in enumerate(self.hand_slots):
             card.setText(hand[i])
 
-    def play_card(self, qubit: int, slot: int):
-        game = Game()
-
-        # Get the player's hand and card
-        hand = game.get_hand(self.player)
-        card = hand[slot]
-
-        # Play the card and increase the turn
-        game.board_content.append((card, qubit))
-        game.turn += 1
-
-        # Update the hand
-        game.replace_card(slot, self.player)
-
-        # Update the state
-        game.apply_rotation(card, qubit)
-
-        # Update ui
-        win = UiMainWindow.instance
-        self.update_hand()
-        win.board.update_board()
-        self.master.player_choice_frame()
+        # Update the objectives
+        for i, obj in enumerate(game.objectives[self.player - 1]):
+            self.objectives[i].set_content(obj)
 
 
 class PlayerChoiceFrame(QtWidgets.QFrame):
@@ -280,13 +302,12 @@ class PlayerChoiceFrame(QtWidgets.QFrame):
                button_height)
 
 
-class UiButtonsPlayer(QtWidgets.QFrame):
+class UiButtonsPlayer(QtWidgets.QFrame, AbstractObserverUI):
     def __init__(self, master: QWidget) -> None:
         super().__init__(master)
 
         self.setGeometry(UI_BUTTONS_MARGIN, UI_BUTTONS_MARGIN // 2 + TITLE_BAR_HEIGHT, UI_BUTTONS_WIDTH,
                          UI_BUTTONS_HEIGHT)
-        # self.setStyleSheet("border: 1px solid white;")
 
         self.frames = {}
 
@@ -300,14 +321,20 @@ class UiButtonsPlayer(QtWidgets.QFrame):
 
     def player_choice_frame(self):
 
-        if "player_choice" in self.frames.keys():
-            self.hide_all_frames()
-            self.frames["player_choice"].show()
-            return
+        if "player_choice" not in self.frames.keys():
+            self.frames["player_choice"] = PlayerChoiceFrame(self, self.player1_frame, self.player2_frame)
 
-        self.frames["player_choice"] = PlayerChoiceFrame(self, self.player1_frame, self.player2_frame)
         self.hide_all_frames()
         self.frames["player_choice"].show()
+
+        # Check winning condition
+        game = Game()
+        winning = game.check_win()
+        if winning > 0:
+            if winning == 1:
+                print("Player 1 wins")
+            elif winning == 2:
+                print("Player 2 wins")
 
     def player2_frame(self):
         if "player2" in self.frames.keys():
@@ -316,6 +343,9 @@ class UiButtonsPlayer(QtWidgets.QFrame):
             return
 
         self.frames["player2"] = HandFrame(self, 2)
+
+        win = UiMainWindow.instance
+        win.add_observer(self.frames["player2"])
 
         frame = self.frames["player2"]
         button_back = QtWidgets.QPushButton(frame)
@@ -332,12 +362,18 @@ class UiButtonsPlayer(QtWidgets.QFrame):
 
         self.frames["player1"] = HandFrame(self, 1)
 
+        win = UiMainWindow.instance
+        win.add_observer(self.frames["player1"])
+
         frame = self.frames["player1"]
         button_back = QtWidgets.QPushButton(frame)
         button_back.setGeometry(QtCore.QRect(5, 5, 40, 20))
         button_back.clicked.connect(self.player_choice_frame)
         button_back.setIcon(QtGui.QIcon(QtGui.QPixmap("img/back.svg")))
         button_back.setStyleSheet(stylesheet.DEFAULT_BUTTON)
+
+    def update_ui(self):
+        self.player_choice_frame()
 
 
 class UiMainWindow(QtWidgets.QMainWindow):
@@ -346,11 +382,14 @@ class UiMainWindow(QtWidgets.QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         UiMainWindow.instance = self
+        self.update_observers = []
 
         self.setup()
         TitleBar(self.centralWidget, lambda: self.close(), self)
-        UiButtonsPlayer(self.centralWidget)
+        uiButtonPlayer = UiButtonsPlayer(self.centralWidget)
+        self.add_observer(uiButtonPlayer)
         self.board = Board(self.centralWidget)
+        self.add_observer(self.board)
 
     def setup(self):
         self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -360,6 +399,13 @@ class UiMainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self.centralWidget)
         self.setWindowTitle("QICS Quantum board game")
         self.setWindowFlag(QtCore.Qt.FramelessWindowHint)
+
+    def add_observer(self, observer: AbstractObserverUI):
+        self.update_observers.append(observer)
+
+    def send_signal(self):
+        for observer in self.update_observers:
+            observer.update_ui()
 
 
 if __name__ == '__main__':
