@@ -106,6 +106,9 @@ class HandFrame(QtWidgets.QFrame, AbstractObserverUI):
         width = NB_CARDS_HAND * (SLOT_WIDTH + SLOT_MARGIN) + SLOT_MARGIN
         offset = (master.width() - width) // 2
 
+        self.setGeometry(master.rect())
+        self.setStyleSheet("border: 1px solid white;")
+
         game = Game()
         win = UiMainWindow.instance
 
@@ -123,7 +126,16 @@ class HandFrame(QtWidgets.QFrame, AbstractObserverUI):
             menu.addAction("Play on 2nd qubit", fc2)
             self.hand_slots[i].setMenu(menu)
 
-        # Adding the objective on the right
+        # Adding the objective below
+        self.objectives_frames = [
+            QtWidgets.QFrame(self)
+        ]
+
+        frame_width = int(width / 6)
+
+        # for i, frame in enumerate(self.objectives_frames):
+        #     frame.setGeometry()
+
         self.objectives = [
             Slot(self, offset + width + SLOT_MARGIN, 0, SLOT_HEIGHT // 2, SLOT_HEIGHT // 2),
             Slot(self, offset + width + SLOT_MARGIN, SLOT_MARGIN + SLOT_HEIGHT // 2, SLOT_HEIGHT // 2, SLOT_HEIGHT // 2)
@@ -141,9 +153,9 @@ class HandFrame(QtWidgets.QFrame, AbstractObserverUI):
         for i, card in enumerate(self.hand_slots):
             card.setText(hand[i])
 
-        # Update the objectives
-        for i, obj in enumerate(game.objectives[self.player - 1]):
-            self.objectives[i].set_content(obj)
+        # # Update the objectives
+        # for i, obj in enumerate(game.objectives[self.player - 1]):
+        #     self.objectives[i].set_content(obj)
 
 
 class PlayerChoiceFrame(QtWidgets.QFrame):
@@ -168,6 +180,8 @@ class UiButtonsPlayer(QtWidgets.QFrame, AbstractObserverUI):
 
         self.setGeometry(UI_BUTTONS_MARGIN, UI_BUTTONS_MARGIN // 2 + TITLE_BAR_HEIGHT, UI_BUTTONS_WIDTH,
                          UI_BUTTONS_HEIGHT)
+
+        # self.setStyleSheet("border: 1px solid white;")
 
         self.frames = {}
         self.image_path = os.path.join(os.path.dirname(__file__), "img/back.svg")
@@ -209,11 +223,7 @@ class UiButtonsPlayer(QtWidgets.QFrame, AbstractObserverUI):
         win.add_observer(self.frames["player2"])
 
         frame = self.frames["player2"]
-        button_back = QtWidgets.QPushButton(frame)
-        button_back.setGeometry(QtCore.QRect(5, 5, 40, 20))
-        button_back.clicked.connect(self.player_choice_frame)
-        button_back.setIcon(QtGui.QIcon(QtGui.QPixmap(self.image_path)))
-        button_back.setStyleSheet(stylesheet.DEFAULT_BUTTON)
+        self._setup_button(frame)
 
     def player1_frame(self):
         if "player1" in self.frames.keys():
@@ -227,11 +237,14 @@ class UiButtonsPlayer(QtWidgets.QFrame, AbstractObserverUI):
         win.add_observer(self.frames["player1"])
 
         frame = self.frames["player1"]
-        button_back = QtWidgets.QPushButton(frame)
-        button_back.setGeometry(QtCore.QRect(5, 5, 40, 20))
-        button_back.clicked.connect(self.player_choice_frame)
-        button_back.setIcon(QtGui.QIcon(QtGui.QPixmap(self.image_path)))
-        button_back.setStyleSheet(stylesheet.DEFAULT_BUTTON)
+        self._setup_button(frame)
+
+    def _setup_button(self, frame):
+        button = QtWidgets.QPushButton(frame)
+        button.setGeometry(QtCore.QRect(5, 5, 40, 20))
+        button.clicked.connect(self.player_choice_frame)
+        button.setIcon(QtGui.QIcon(QtGui.QPixmap(self.image_path)))
+        button.setStyleSheet(stylesheet.DEFAULT_BUTTON)
 
     def update_ui(self):
         self.player_choice_frame()

@@ -52,8 +52,17 @@ class Game(metaclass=Singleton):
         self.hands[1] = random.choices(self.operations, k=NB_CARDS_HAND)
 
         # Prepare objectives
-        self.objectives.append(random.choices(self.states, k=2))
-        self.objectives.append(random.choices(self.states, k=2))
+        allowed_states_obj = self.states[1:]
+        self.objectives.append(
+            [
+                random.choices(allowed_states_obj, k=2) for _ in range(NB_OBJECTIVES)
+            ]
+        )
+        self.objectives.append(
+            [
+                random.choices(allowed_states_obj, k=2) for _ in range(NB_OBJECTIVES)
+            ]
+        )
 
     def get_hand(self, player: int) -> List[str]:
         return self.hands[player - 1]
@@ -102,8 +111,8 @@ class Game(metaclass=Singleton):
         Check if the game is won
         :return: 0 if not, 1 if player 1 won, 2 if player 2 won
         """
-        if self.state == self.objectives[0]:
-            return 1
-        elif self.state == self.objectives[1]:
-            return 2
+        # if self.state == self.objectives[0]:
+        #     return 1
+        # elif self.state == self.objectives[1]:
+        #     return 2
         return 0
