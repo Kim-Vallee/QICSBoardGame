@@ -1,6 +1,6 @@
 from typing import Callable, List
 from PyQt5 import QtCore, QtWidgets
-import stylesheet
+import QICS_BG.stylesheet as stylesheet
 from PyQt5.QtWidgets import QWidget
 
 

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "QICS_BG"
+version = "0.0.1"
+authors = [
+  { name="Kim Vallée", email="kim.vallee@lip6.fr" },
+]
+description = "A package for a quantum board game implementation"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Kim-Vallee/QICSBoardGame"
+"Bug Tracker" = "https://github.com/Kim-Vallee/QICSBoardGame/issues"
