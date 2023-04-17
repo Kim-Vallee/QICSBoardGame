@@ -7,6 +7,11 @@ Just install the requirements :
 pip install -r requirements.txt
 ```
 
+Then install the package:
+```bash
+pip install -e .
+```
+
 ## Usage
 
 ```bash
