@@ -39,9 +39,10 @@ class Board(QtWidgets.QFrame, AbstractObserverUI):
     def __init__(self, master: QWidget) -> None:
         super().__init__(master)
 
-        self.setGeometry(QtCore.QRect(BOARD_MARGIN, WINDOW_HEIGHT - BOARD_HEIGHT - BOARD_MARGIN,
+        self.setGeometry(QtCore.QRect(BOARD_MARGIN, BOARD_MARGIN,
                                       BOARD_WIDTH, BOARD_HEIGHT))
         self.setStyleSheet(stylesheet.BOARD)
+        self.layout = QGridLayout(self)
 
         # 4 steps to get to the end
         self.slots = []
@@ -255,22 +256,16 @@ class CurrentStateFrame(QtWidgets.QFrame, AbstractObserverUI):
         super().__init__(master)
         self.master = master
 
-        self.setGeometry(2 * BOARD_MARGIN + BOARD_WIDTH, WINDOW_HEIGHT - BOARD_HEIGHT - BOARD_MARGIN,
+        self.setGeometry(BOARD_MARGIN, BOARD_MARGIN,
                          SLOT_WIDTH + SLOT_MARGIN * 2, SLOT_HEIGHT * 2 + SLOT_MARGIN * 3)
 
         self.setStyleSheet(stylesheet.BOARD)
 
         self.qubits = []
 
-        self.qubits.append(Slot(master, 2 * BOARD_MARGIN + BOARD_WIDTH + SLOT_MARGIN,
-                                WINDOW_HEIGHT - BOARD_HEIGHT - BOARD_MARGIN + SLOT_MARGIN,
-                                SLOT_WIDTH,
-                                SLOT_HEIGHT))
+        self.qubits.append(Slot(self, SLOT_MARGIN, SLOT_MARGIN, SLOT_WIDTH, SLOT_HEIGHT))
 
-        self.qubits.append(Slot(master, 2 * BOARD_MARGIN + BOARD_WIDTH + SLOT_MARGIN,
-                                WINDOW_HEIGHT - BOARD_HEIGHT - BOARD_MARGIN + SLOT_HEIGHT + 2 * SLOT_MARGIN,
-                                SLOT_WIDTH,
-                                SLOT_HEIGHT))
+        self.qubits.append(Slot(self, SLOT_MARGIN, SLOT_MARGIN * 2 + SLOT_HEIGHT, SLOT_WIDTH, SLOT_HEIGHT))
 
         for qbit_ui in self.qubits:
             qbit_ui.set_content("0")
@@ -292,17 +287,34 @@ class UiMainWindow(QtWidgets.QMainWindow):
 
         self.setup()
         TitleBar(self.centralWidget, lambda: self.close(), self)
-        uiButtonPlayer = UiButtonsPlayer(self.centralWidget)
-        self.add_observer(uiButtonPlayer)
+        self.contentWidget.setGeometry(0, TITLE_BAR_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT - TITLE_BAR_HEIGHT)
+        self.layout = QtWidgets.QVBoxLayout(self.contentWidget)
+
+        self.board_widget = QtWidgets.QWidget(self.contentWidget)
+        self.board_layout = QtWidgets.QHBoxLayout()
+
+        self.uiButtonPlayer = UiButtonsPlayer(self.centralWidget)
         self.board = Board(self.centralWidget)
-        self.add_observer(self.board)
         self.states_ui = CurrentStateFrame(self.centralWidget)
+
+        self.add_observer(self.uiButtonPlayer)
         self.add_observer(self.states_ui)
+        self.add_observer(self.board)
+
+        self.layout.addWidget(self.uiButtonPlayer)
+        self.layout.addWidget(self.board_widget)
+
+        self.board_layout.addWidget(self.board, 5)
+        self.board_layout.addWidget(self.states_ui, 1)
+
+        self.contentWidget.setLayout(self.layout)
+        self.board_widget.setLayout(self.board_layout)
 
     def setup(self):
         self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.setStyleSheet(stylesheet.WINDOW)
         self.centralWidget = QtWidgets.QWidget(self)
+        self.contentWidget = QtWidgets.QWidget(self.centralWidget)
         self.centralWidget.setStyleSheet(stylesheet.GLOBAL_STYLES)
         self.setCentralWidget(self.centralWidget)
         self.setWindowTitle("QICS Quantum board game")
