@@ -120,22 +120,15 @@ class UiButtonsPlayer(QtWidgets.QFrame, AbstractObserverUI):
             frame.hide()
 
     def player_choice_frame(self):
-
         if "player_choice" not in self.frames.keys():
+            main_window = UiMainWindow.instance
+
             self.frames["player_choice"] = PlayerChoiceFrame(self, self.player1_frame, self.player2_frame)
+            main_window.add_observer(self.frames["player_choice"])
             self.layout.addWidget(self.frames["player_choice"])
 
         self.hide_all_frames()
         self.frames["player_choice"].show()
-
-        # Check winning condition
-        game = Game()
-        winning = game.check_win()
-        if winning > 0:
-            if winning == 1:
-                print("Player 1 wins")
-            elif winning == 2:
-                print("Player 2 wins")
 
     def player2_frame(self):
         if "player2" in self.frames.keys():
@@ -231,11 +224,15 @@ class HandFrame(QtWidgets.QFrame, AbstractObserverUI):
                 slot.setFont(QFont("Arial", 12))
                 slot.setStyleSheet(stylesheet.FONT_STYLE_CONTENT)
                 slot.setAlignment(Qt.AlignCenter)
+                slot.setMaximumWidth(50)
+                slot.setMinimumWidth(50)
+                slot.setMinimumHeight(50)
                 slot.show()
             container = QFrame(self)
-            objective_layout = QHBoxLayout()
-            objective_layout.addWidget(slots[0], 1)
-            objective_layout.addWidget(slots[1], 1)
+            container.setMaximumWidth(100)
+            objective_layout = QVBoxLayout()
+            objective_layout.addWidget(slots[0], 1, alignment=Qt.AlignCenter)
+            objective_layout.addWidget(slots[1], 1, alignment=Qt.AlignCenter)
             container.setLayout(objective_layout)
             container.setObjectName(f"container_{i}_{player}")
             container.setStyleSheet(f"""
@@ -271,7 +268,7 @@ class HandFrame(QtWidgets.QFrame, AbstractObserverUI):
                 self.objectives[i][j].setText(obj[j])
 
 
-class PlayerChoiceFrame(QtWidgets.QFrame):
+class PlayerChoiceFrame(QtWidgets.QFrame, AbstractObserverUI):
     """Class for the player choice frame"""
 
     def __init__(self, master: QWidget, callback_player1, callback_player2) -> None:
@@ -309,6 +306,12 @@ class PlayerChoiceFrame(QtWidgets.QFrame):
         self.layout.addWidget(self.score_labels[1], 1, 1, alignment=Qt.AlignCenter | Qt.AlignTop)
 
         self.setLayout(self.layout)
+
+    def update_ui(self):
+        game = Game()
+
+        self.score_labels[0].setText(f"Score player 1: {game.scores[0]}")
+        self.score_labels[1].setText(f"Score player 2: {game.scores[1]}")
 
 
 class CurrentStateFrame(QtWidgets.QFrame, AbstractObserverUI):
@@ -390,5 +393,9 @@ class UiMainWindow(QtWidgets.QMainWindow):
         self.update_observers.append(observer)
 
     def send_signal(self):
+        # Check winning condition
+        game = Game()
+        game.check_win()
+
         for observer in self.update_observers:
             observer.update_ui()
