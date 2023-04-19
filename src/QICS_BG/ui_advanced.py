@@ -62,6 +62,8 @@ class Board(QtWidgets.QFrame, AbstractObserverUI):
             self.clean_slots()
         shown_content = game.board_content[nb_panels * NB_SLOTS:nb_panels * NB_SLOTS + 6]
         for i, (card, qubit) in enumerate(shown_content):
+            if card == "E":
+                self.slots[i][1 - qubit].set_content(card)
             self.slots[i][qubit].set_content(card)
 
     def clean_slots(self):
@@ -304,23 +306,26 @@ class CurrentStateFrame(QtWidgets.QFrame, AbstractObserverUI):
 
         self.setStyleSheet(stylesheet.BOARD)
 
-        self.layout = QtWidgets.QVBoxLayout(self)
+        self.layout = QtWidgets.QGridLayout(self)
 
-        self.qubits = [Slot(self), Slot(self)]
+        self.qubits = [Slot(self), Slot(self), Slot(self), Slot(self)]
 
-        self.layout.addWidget(self.qubits[0])
-        self.layout.addWidget(self.qubits[1])
+        for i in range(len(self.qubits)):
+            self.layout.addWidget(self.qubits[i], i % 2, i // 2)
+
         self.setLayout(self.layout)
 
-        for qbit_ui in self.qubits:
-            qbit_ui.set_content("0")
+        self.qubits[0].set_content("0")
+        self.qubits[1].set_content("0")
 
     def update_ui(self):
         game = Game()
 
         for i, qbit in enumerate(self.qubits):
-            qbit.set_content(game.state[i])
-
+            if game.state[i] != "/":
+                qbit.set_content(game.state[i])
+            else:
+                qbit.set_content("")
 
 class UiMainWindow(QtWidgets.QMainWindow):
     instance = None
@@ -349,8 +354,8 @@ class UiMainWindow(QtWidgets.QMainWindow):
         self.layout.addWidget(self.uiButtonPlayer, 5)
         self.layout.addWidget(self.board_widget, 6)
 
-        self.board_layout.addWidget(self.board, 5)
-        self.board_layout.addWidget(self.states_ui, 1)
+        self.board_layout.addWidget(self.board, NB_SLOTS)
+        self.board_layout.addWidget(self.states_ui, 2)
 
         self.contentWidget.setLayout(self.layout)
         self.board_widget.setLayout(self.board_layout)
