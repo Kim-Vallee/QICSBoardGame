@@ -281,19 +281,32 @@ class PlayerChoiceFrame(QtWidgets.QFrame):
 
         self.setGeometry(master.rect())
 
-        # self.setStyleSheet("border: 1px solid red;")
-
-        self.layout = QtWidgets.QHBoxLayout(self)
+        self.layout = QtWidgets.QGridLayout(self)
 
         button_player1 = Button(self, "Player 1", callback_player1)
         button_player1.setMaximumWidth(button_width)
-        button_player1.setMinimumHeight(50)
+        button_player1.setMinimumHeight(button_height)
         button_player2 = Button(self, "Player 2", callback_player2)
         button_player2.setMaximumWidth(button_width)
-        button_player2.setMinimumHeight(50)
+        button_player2.setMinimumHeight(button_height)
 
-        self.layout.addWidget(button_player1)
-        self.layout.addWidget(button_player2)
+        game = Game()
+
+        self.score_labels = [
+            QLabel(f"Score player 1: {game.scores[0]}", self),
+            QLabel(f"Score player 2: {game.scores[1]}", self)
+        ]
+
+        for label in self.score_labels:
+            label.setFont(QFont("Arial", 12))
+            label.setStyleSheet(stylesheet.FONT_STYLE_CONTENT)
+            label.setAlignment(Qt.AlignCenter)
+            label.show()
+
+        self.layout.addWidget(button_player1, 0, 0, alignment=Qt.AlignCenter | Qt.AlignBottom)
+        self.layout.addWidget(button_player2, 0, 1, alignment=Qt.AlignCenter | Qt.AlignBottom)
+        self.layout.addWidget(self.score_labels[0], 1, 0, alignment=Qt.AlignCenter | Qt.AlignTop)
+        self.layout.addWidget(self.score_labels[1], 1, 1, alignment=Qt.AlignCenter | Qt.AlignTop)
 
         self.setLayout(self.layout)
 
@@ -323,9 +336,10 @@ class CurrentStateFrame(QtWidgets.QFrame, AbstractObserverUI):
 
         for i, qbit in enumerate(self.qubits):
             if game.state[i] != "/":
-                qbit.set_content(game.state[i])
+                qbit.set_content(str(game.state[i]))
             else:
                 qbit.set_content("")
+
 
 class UiMainWindow(QtWidgets.QMainWindow):
     instance = None

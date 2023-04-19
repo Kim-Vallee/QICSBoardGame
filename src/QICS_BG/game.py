@@ -6,6 +6,30 @@ from QICS_BG.utils import *
 
 OPERATIONS = ["X", "Y", "Z", "SX", "SY", "SZ", "E"]
 STATES = ["0", "1", "+", "-", "-i", "+i"]
+BASIS = {
+    "X": ["+", "-"],
+    "Y": ["-i", "+i"],
+    "Z": ["0", "1"],
+    "SX": ["+", "-"],
+    "SY": ["-i", "+i"],
+    "SZ": ["0", "1"],
+}
+OPPOSITE_STATE = {
+    "0": "1",
+    "1": "0",
+    "+": "-",
+    "-": "+",
+    "-i": "+i",
+    "+i": "-i",
+}
+STATE_TO_AXIS = {
+    "0": "Z",
+    "1": "Z",
+    "+": "X",
+    "-": "X",
+    "-i": "Y",
+    "+i": "Y",
+}
 
 
 class State:
@@ -15,6 +39,39 @@ class State:
 
     def __init__(self, init_state=None):
         self.state = init_state
+
+    def rotate(self, rotation):
+        # If it is in the basis nothing happens
+        if self.state in BASIS[rotation]:
+            return
+
+        # If it isn't we apply the rotation
+        if rotation in ["X", "Y", "Z"]:
+            self.state = OPPOSITE_STATE[self.state]
+            return
+
+        # Otherwise we do a half rotation
+        curr_axis = STATE_TO_AXIS[self.state]
+        rotation_axis = rotation if len(rotation) == 1 else rotation[1]
+
+        for axis in ["X", "Y", "Z"]:
+            if axis not in [curr_axis, rotation_axis]:
+                self.state = BASIS[axis][BASIS[curr_axis].index(self.state)]
+
+    def set_state(self, new_state):
+        if new_state == "/":
+            self.state = None
+            return
+        self.state = new_state
+
+    def oppposite(self):
+        return OPPOSITE_STATE[self.state]
+
+    def is_empty(self):
+        return self.state is None
+
+    def axis(self):
+        return STATE_TO_AXIS[self.state]
 
     def __str__(self):
         return self.state if self.state else ""
@@ -26,36 +83,15 @@ class Game(metaclass=Singleton):
 
         self.board_content = []
 
-        self.state = ["0", "0", "/", "/"]
-
-        self.basis = {
-            "X": ["+", "-"],
-            "Y": ["-i", "+i"],
-            "Z": ["0", "1"],
-            "SX": ["+", "-"],
-            "SY": ["-i", "+i"],
-            "SZ": ["0", "1"],
-        }
-
-        self.opposite_state = {
-            "0": "1",
-            "1": "0",
-            "+": "-",
-            "-": "+",
-            "-i": "+i",
-            "+i": "-i",
-        }
-
-        self.state_to_axis = {
-            "0": "Z",
-            "1": "Z",
-            "+": "X",
-            "-": "X",
-            "-i": "Y",
-            "+i": "Y",
-        }
+        self.state = [
+            State("0"),
+            State("0"),
+            State(),
+            State()
+        ]
 
         self.turn = 0
+        self.scores = [0, 0]
         self.objectives = []
         self.setup()
 
@@ -84,63 +120,71 @@ class Game(metaclass=Singleton):
         self.hands[player - 1][pos] = random.choice(OPERATIONS)
 
     def apply_rotation(self, rotation: str, qubit: int):
-        if self.state[2] == "/":
-            self._apply_rotation_separated(rotation, qubit)
+        if self.state[2].is_empty():
+            # They are not entangled
+            if rotation == "E":
+                self.state[2].set_state(self.state[0].oppposite())
+                self.state[3].set_state(self.state[1].oppposite())
+            else:
+                self.state[qubit].rotate(rotation)
         else:
-            self._apply_rotation_entangled(rotation, qubit)
+            # They are entangled
+            if rotation == "E":
+                self.state[2].set_state("/")
+                self.state[3].set_state("/")
+            else:
+                self.state[qubit].rotate(rotation)
+                self.state[qubit + 2].rotate(rotation)
 
     def _apply_rotation_separated(self, rotation: str, qubit: int):
         qubit_state = self.state[qubit]
 
         # Implementing the entanglement rotation
         if rotation == "E":
-            self.state[2] = self.opposite_state[self.state[0]]
-            self.state[3] = self.opposite_state[self.state[1]]
+            self.state[2].set_state(self.state[0].oppposite())
+            self.state[3].set_state(self.state[1].oppposite())
             return
 
         # If it is in the basis nothing happens
-        if qubit_state in self.basis[rotation]:
+        if str(qubit_state) in BASIS[rotation]:
             return
 
         # If it isn't we apply the rotation
         if rotation in ["X", "Y", "Z"]:
-            self.state[qubit] = self.opposite_state[qubit_state]
+            self.state[qubit].set_state(qubit_state.oppposite())
             return
 
-        # Otherwise we do a half rotation
-        curr_axis = self.state_to_axis[qubit_state]
-        rotation_axis = rotation if len(rotation) == 1 else rotation[1]
-
-        for axis in ["X", "Y", "Z"]:
-            if axis not in [curr_axis, rotation_axis]:
-                self.state[qubit] = self.basis[axis][self.basis[curr_axis].index(qubit_state)]
+        self.state[qubit].rotate(rotation)
 
     def _apply_rotation_entangled(self, rotation: str, qubit: int):
         qubit_state = self.state[qubit]
 
         # Implementing the entanglement rotation
         if rotation == "E":
-            self.state[2] = self.state[3] = "/"
+            self.state[2].set_state("/")
+            self.state[3].set_state("/")
             return
 
         # If it is in the basis nothing happens
-        if qubit_state in self.basis[rotation]:
+        if str(qubit_state) in BASIS[rotation]:
             return
 
         # If it isn't we apply the rotation
         if rotation in ["X", "Y", "Z"]:
-            self.state[qubit + 2] = qubit_state
-            self.state[qubit] = self.opposite_state[qubit_state]
+            self.state[qubit].set_state(qubit_state.oppposite())
+            self.state[qubit + 2].set_state(self.state[qubit].oppposite())
             return
 
+        self.q
+
         # Otherwise we do a half rotation
-        curr_axis = self.state_to_axis[qubit_state]
+        curr_axis = qubit_state.axis()
         rotation_axis = rotation if len(rotation) == 1 else rotation[1]
 
         for axis in ["X", "Y", "Z"]:
             if axis not in [curr_axis, rotation_axis]:
-                self.state[qubit] = self.basis[axis][self.basis[curr_axis].index(qubit_state)]
-                self.state[qubit + 2] = self.opposite_state[self.state[qubit]]
+                self.state[qubit] = BASIS[axis][BASIS[curr_axis].index(qubit_state)]
+                self.state[qubit + 2] = OPPOSITE_STATE[self.state[qubit]]
 
     def play_turn(self, player: int, card_pos: int, qubit: int, callback: Callable):
         # Get the player's hand and card
@@ -163,8 +207,11 @@ class Game(metaclass=Singleton):
         Check if the game is won
         :return: 0 if not, 1 if player 1 won, 2 if player 2 won
         """
-        if self.state in self.objectives[0]:
+        state_str = [str(state) for state in self.state]
+        if state_str in self.objectives[0]:
+            self.scores[0] += 1
             return 1
-        elif self.state in self.objectives[1]:
+        elif state_str in self.objectives[1]:
+            self.scores[1] += 1
             return 2
         return 0
