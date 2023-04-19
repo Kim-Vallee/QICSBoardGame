@@ -1,5 +1,5 @@
 from typing import Callable, List
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 import QICS_BG.stylesheet as stylesheet
 from PyQt5.QtWidgets import QWidget
 
@@ -33,10 +33,10 @@ class Label(QtWidgets.QLabel):
 
 
 class Button(QtWidgets.QPushButton):
-    def __init__(self, master: QWidget, text: str, callback: Callable, x: int, y: int, width: int,
-                 height: int) -> None:
+    def __init__(self, master: QWidget, text: str, callback: Callable) -> None:
         super().__init__(master)
-        self.setGeometry(QtCore.QRect(x, y, width, height))
+        self.text = text
+
         self.setFont(stylesheet.DEFAULT_FONT)
         self.setText(text)
         self.setStyleSheet(stylesheet.DEFAULT_BUTTON)
@@ -45,6 +45,10 @@ class Button(QtWidgets.QPushButton):
     def update_callback(self, callback: Callable) -> None:
         self.clicked.disconnect()
         self.clicked.connect(callback)
+
+    def resizeEvent(self, a0: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(a0)
+        self.setText(self.text)
 
 
 class Entry(QtWidgets.QLineEdit):

@@ -14,25 +14,28 @@ import QICS_BG.stylesheet as stylesheet
 
 
 class Slot(QtWidgets.QFrame):
-    def __init__(self, master: QWidget, x: int, y: int, width: int, height: int) -> None:
+    def __init__(self, master: QWidget) -> None:
         super(Slot, self).__init__(master)
-
-        self.setGeometry(QtCore.QRect(x, y, width, height))
-        self.width = width
-        self.height = height
 
         self.setStyleSheet(stylesheet.SLOTS)
         self.content = None
         self.master = master
+        self.content_text = ""
 
     def set_content(self, content: str, fontsize: int = 20):
+        width, height = self.size().width(), self.size().height()
+        self.content_text = content
         self.content = QLabel(self)
-        self.content.setGeometry(0, 0, self.width, self.height)
+        self.content.setGeometry(0, 0, width, height)
         self.content.setFont(QFont("Arial", fontsize))
         self.content.setStyleSheet(stylesheet.FONT_STYLE_CONTENT)
         self.content.setAlignment(Qt.AlignCenter)
         self.content.setText(content)
         self.content.show()
+
+    def resizeEvent(self, a0: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(a0)
+        self.set_content(self.content_text)
 
 
 class Board(QtWidgets.QFrame, AbstractObserverUI):
@@ -41,14 +44,15 @@ class Board(QtWidgets.QFrame, AbstractObserverUI):
 
         self.setStyleSheet(stylesheet.BOARD)
         self.layout = QGridLayout(self)
+        self.setLayout(self.layout)
 
-        # 4 steps to get to the end
         self.slots = []
+        # 4 steps to get to the end
         for i in range(NB_SLOTS):
-            self.slots.append(
-                (Slot(self, i * (SLOT_WIDTH + SLOT_MARGIN) + SLOT_MARGIN, SLOT_MARGIN, SLOT_WIDTH, SLOT_HEIGHT),
-                 Slot(self, i * (SLOT_WIDTH + SLOT_MARGIN) + SLOT_MARGIN, SLOT_HEIGHT + 2 * SLOT_MARGIN, SLOT_WIDTH,
-                      SLOT_HEIGHT)))
+            _slots = [Slot(self), Slot(self)]
+            self.layout.addWidget(_slots[0], 0, i)
+            self.layout.addWidget(_slots[1], 1, i)
+            self.slots.append(tuple(_slots))
 
     def update_ui(self):
         game = Game()
@@ -197,11 +201,7 @@ class HandFrame(QtWidgets.QFrame, AbstractObserverUI):
         upper_layout.addWidget(exit_button, 1, alignment=Qt.AlignLeft | Qt.AlignTop)
 
         for i in range(NB_CARDS_HAND):
-            button = Button(self, "", lambda: 0,
-                            0,
-                            0,
-                            SLOT_WIDTH,
-                            SLOT_HEIGHT)
+            button = Button(self, "", lambda: 0)
             button.setMaximumWidth(100)
             button.setMaximumHeight(100)
             button.setMinimumWidth(100)
@@ -283,12 +283,10 @@ class PlayerChoiceFrame(QtWidgets.QFrame):
 
         self.layout = QtWidgets.QHBoxLayout(self)
 
-        button_player1 = Button(self, "Player 1", callback_player1, 0,
-                                0, button_width, button_height)
+        button_player1 = Button(self, "Player 1", callback_player1)
         button_player1.setMaximumWidth(button_width)
         button_player1.setMinimumHeight(50)
-        button_player2 = Button(self, "Player 2", callback_player2, 0,
-                                0, button_width, button_height)
+        button_player2 = Button(self, "Player 2", callback_player2)
         button_player2.setMaximumWidth(button_width)
         button_player2.setMinimumHeight(50)
 
@@ -301,18 +299,18 @@ class PlayerChoiceFrame(QtWidgets.QFrame):
 class CurrentStateFrame(QtWidgets.QFrame, AbstractObserverUI):
     def __init__(self, master: QWidget) -> None:
         super().__init__(master)
-        self.master = master
 
-        self.setGeometry(BOARD_MARGIN, BOARD_MARGIN,
-                         SLOT_WIDTH + SLOT_MARGIN * 2, SLOT_HEIGHT * 2 + SLOT_MARGIN * 3)
+        self.master = master
 
         self.setStyleSheet(stylesheet.BOARD)
 
-        self.qubits = []
+        self.layout = QtWidgets.QVBoxLayout(self)
 
-        self.qubits.append(Slot(self, SLOT_MARGIN, SLOT_MARGIN, SLOT_WIDTH, SLOT_HEIGHT))
+        self.qubits = [Slot(self), Slot(self)]
 
-        self.qubits.append(Slot(self, SLOT_MARGIN, SLOT_MARGIN * 2 + SLOT_HEIGHT, SLOT_WIDTH, SLOT_HEIGHT))
+        self.layout.addWidget(self.qubits[0])
+        self.layout.addWidget(self.qubits[1])
+        self.setLayout(self.layout)
 
         for qbit_ui in self.qubits:
             qbit_ui.set_content("0")
