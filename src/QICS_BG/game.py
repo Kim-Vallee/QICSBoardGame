@@ -111,8 +111,8 @@ class Game(metaclass=Singleton):
         Check if the game is won
         :return: 0 if not, 1 if player 1 won, 2 if player 2 won
         """
-        # if self.state == self.objectives[0]:
-        #     return 1
-        # elif self.state == self.objectives[1]:
-        #     return 2
+        if self.state in self.objectives[0]:
+            return 1
+        elif self.state in self.objectives[1]:
+            return 2
         return 0

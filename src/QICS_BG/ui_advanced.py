@@ -4,7 +4,7 @@ from typing import Callable
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QWidget, QLabel, QMenu, QGridLayout
+from PyQt5.QtWidgets import QWidget, QLabel, QMenu, QGridLayout, QHBoxLayout, QVBoxLayout, QFrame
 
 from QICS_BG.constants import *
 from QICS_BG.game import Game
@@ -39,8 +39,6 @@ class Board(QtWidgets.QFrame, AbstractObserverUI):
     def __init__(self, master: QWidget) -> None:
         super().__init__(master)
 
-        self.setGeometry(QtCore.QRect(BOARD_MARGIN, BOARD_MARGIN,
-                                      BOARD_WIDTH, BOARD_HEIGHT))
         self.setStyleSheet(stylesheet.BOARD)
         self.layout = QGridLayout(self)
 
@@ -94,95 +92,15 @@ class TitleBar(QtWidgets.QFrame):
         self.oldPos = event.globalPos()
 
 
-class HandFrame(QtWidgets.QFrame, AbstractObserverUI):
-    """Class for the hand of the player"""
-
-    def __init__(self, master: QWidget, player: int) -> None:
-        super(HandFrame, self).__init__(master)
-        self.hand_slots = []
-        self.master = master
-        self.player = player
-
-        # Computing the center
-        width = NB_CARDS_HAND * (SLOT_WIDTH + SLOT_MARGIN) + SLOT_MARGIN
-        offset = (master.width() - width) // 2
-
-        self.setGeometry(master.rect())
-        self.setStyleSheet("border: 1px solid white;")
-
-        game = Game()
-        win = UiMainWindow.instance
-
-        for i in range(NB_CARDS_HAND):
-            self.hand_slots.append(
-                Button(self, "", lambda: 0,
-                       offset + i * (SLOT_WIDTH + SLOT_MARGIN) + SLOT_MARGIN,
-                       SLOT_MARGIN,
-                       SLOT_WIDTH,
-                       SLOT_HEIGHT))
-            menu = QMenu(f'Card {i}, player {player}')
-            fc = lambda i=i: game.play_turn(self.player, i, 0, win.send_signal)
-            fc2 = lambda i=i: game.play_turn(self.player, i, 1, win.send_signal)
-            menu.addAction("Play on 1st qubit", fc)
-            menu.addAction("Play on 2nd qubit", fc2)
-            self.hand_slots[i].setMenu(menu)
-
-        # Adding the objective below
-        self.objectives_frames = [
-            QtWidgets.QFrame(self)
-        ]
-
-        frame_width = int(width / 6)
-
-        # for i, frame in enumerate(self.objectives_frames):
-        #     frame.setGeometry()
-
-        self.objectives = [
-            Slot(self, offset + width + SLOT_MARGIN, 0, SLOT_HEIGHT // 2, SLOT_HEIGHT // 2),
-            Slot(self, offset + width + SLOT_MARGIN, SLOT_MARGIN + SLOT_HEIGHT // 2, SLOT_HEIGHT // 2, SLOT_HEIGHT // 2)
-        ]
-
-    def show(self) -> None:
-        super(HandFrame, self).show()
-        self.update_ui()
-
-    def update_ui(self):
-        game = Game()
-
-        # Update the hand
-        hand = game.get_hand(self.player)
-        for i, card in enumerate(self.hand_slots):
-            card.setText(hand[i])
-
-        # # Update the objectives
-        # for i, obj in enumerate(game.objectives[self.player - 1]):
-        #     self.objectives[i].set_content(obj)
-
-
-class PlayerChoiceFrame(QtWidgets.QFrame):
-    """Class for the player choice frame"""
-
-    def __init__(self, master: QWidget, callback_player1, callback_player2) -> None:
-        super(PlayerChoiceFrame, self).__init__(master)
-        button_width = int(UI_BUTTONS_WIDTH / 6)
-        button_height = 50
-
-        Button(self, "Player 1", callback_player1, button_width,
-               UI_BUTTONS_HEIGHT // 2 - button_height // 2, button_width,
-               button_height)
-        Button(self, "Player 2", callback_player2, 4 * button_width,
-               UI_BUTTONS_HEIGHT // 2 - button_height // 2, button_width,
-               button_height)
-
-
 class UiButtonsPlayer(QtWidgets.QFrame, AbstractObserverUI):
     def __init__(self, master: QWidget) -> None:
         super().__init__(master)
 
-        self.setGeometry(UI_BUTTONS_MARGIN, UI_BUTTONS_MARGIN // 2 + TITLE_BAR_HEIGHT, UI_BUTTONS_WIDTH,
-                         UI_BUTTONS_HEIGHT)
+        self.master = master
+        self.layout = QtWidgets.QHBoxLayout(self)
+        self.setLayout(self.layout)
 
-        # self.setStyleSheet("border: 1px solid white;")
+        # self.setStyleSheet("border: 1px solid green;")
 
         self.frames = {}
         self.image_path = os.path.join(os.path.dirname(__file__), "img/back.svg")
@@ -199,6 +117,7 @@ class UiButtonsPlayer(QtWidgets.QFrame, AbstractObserverUI):
 
         if "player_choice" not in self.frames.keys():
             self.frames["player_choice"] = PlayerChoiceFrame(self, self.player1_frame, self.player2_frame)
+            self.layout.addWidget(self.frames["player_choice"])
 
         self.hide_all_frames()
         self.frames["player_choice"].show()
@@ -220,11 +139,10 @@ class UiButtonsPlayer(QtWidgets.QFrame, AbstractObserverUI):
 
         self.frames["player2"] = HandFrame(self, 2)
 
+        self.layout.addWidget(self.frames["player2"])
+
         win = UiMainWindow.instance
         win.add_observer(self.frames["player2"])
-
-        frame = self.frames["player2"]
-        self._setup_button(frame)
 
     def player1_frame(self):
         if "player1" in self.frames.keys():
@@ -234,21 +152,150 @@ class UiButtonsPlayer(QtWidgets.QFrame, AbstractObserverUI):
 
         self.frames["player1"] = HandFrame(self, 1)
 
+        self.layout.addWidget(self.frames["player1"])
+
         win = UiMainWindow.instance
         win.add_observer(self.frames["player1"])
 
-        frame = self.frames["player1"]
-        self._setup_button(frame)
-
-    def _setup_button(self, frame):
-        button = QtWidgets.QPushButton(frame)
-        button.setGeometry(QtCore.QRect(5, 5, 40, 20))
-        button.clicked.connect(self.player_choice_frame)
-        button.setIcon(QtGui.QIcon(QtGui.QPixmap(self.image_path)))
-        button.setStyleSheet(stylesheet.DEFAULT_BUTTON)
-
     def update_ui(self):
         self.player_choice_frame()
+
+
+class HandFrame(QtWidgets.QFrame, AbstractObserverUI):
+    """Class for the hand of the player"""
+
+    def __init__(self, master: UiButtonsPlayer, player: int) -> None:
+        super(HandFrame, self).__init__(master)
+        self.hand_slots = []
+        self.master = master
+        self.player = player
+
+        # First layout corresponds to return button and states
+        self.layout = QVBoxLayout(self)
+
+        self.upper_part = QtWidgets.QFrame(self)
+        self.lower_part = QtWidgets.QFrame(self)
+
+        self.layout.addWidget(self.upper_part, 2)
+        self.layout.addWidget(self.lower_part, 1)
+
+        self.setLayout(self.layout)
+
+        upper_layout = QHBoxLayout(self.upper_part)
+        lower_layout = QHBoxLayout(self.lower_part)
+
+        game = Game()
+        win = UiMainWindow.instance
+
+        # Return button
+        exit_button = QtWidgets.QPushButton(self)
+        exit_button.setGeometry(QtCore.QRect(0, 0, 40, 20))
+        exit_button.clicked.connect(master.player_choice_frame)
+        exit_button.setIcon(QtGui.QIcon(QtGui.QPixmap(master.image_path)))
+        exit_button.setStyleSheet(stylesheet.DEFAULT_BUTTON)
+        exit_button.setMaximumWidth(40)
+        upper_layout.addWidget(exit_button, 1, alignment=Qt.AlignLeft | Qt.AlignTop)
+
+        for i in range(NB_CARDS_HAND):
+            button = Button(self, "", lambda: 0,
+                            0,
+                            0,
+                            SLOT_WIDTH,
+                            SLOT_HEIGHT)
+            button.setMaximumWidth(100)
+            button.setMaximumHeight(100)
+            button.setMinimumWidth(100)
+            button.setMinimumHeight(100)
+
+            self.hand_slots.append(button)
+            upper_layout.addWidget(button, 3, alignment=Qt.AlignCenter)
+
+            menu = QMenu(f'Card {i}, player {player}')
+            fc = lambda i=i: game.play_turn(self.player, i, 0, win.send_signal)
+            fc2 = lambda i=i: game.play_turn(self.player, i, 1, win.send_signal)
+            menu.addAction("Play on 1st qubit", fc)
+            menu.addAction("Play on 2nd qubit", fc2)
+
+            self.hand_slots[i].setMenu(menu)
+
+        self.upper_part.setLayout(upper_layout)
+
+        self.objectives = []
+
+        # Adding the objectives below
+        for i in range(len(game.objectives[player - 1])):
+            slots = [QLabel(self), QLabel(self)]
+            for slot in slots:
+                slot.setFont(QFont("Arial", 12))
+                slot.setStyleSheet(stylesheet.FONT_STYLE_CONTENT)
+                slot.setAlignment(Qt.AlignCenter)
+                slot.show()
+            container = QFrame(self)
+            objective_layout = QHBoxLayout()
+            objective_layout.addWidget(slots[0], 1)
+            objective_layout.addWidget(slots[1], 1)
+            container.setLayout(objective_layout)
+            container.setObjectName(f"container_{i}_{player}")
+            container.setStyleSheet(f"""
+            #container_{i}_{player} {{
+                border: 1px solid white;
+                background-color: #2d2d2d;
+            }}
+            
+            QFrame {{
+                border-radius: 5px;
+            }}
+            """)
+            lower_layout.addWidget(container, 1)
+            self.objectives.append(tuple(slots))
+
+        self.lower_part.setLayout(lower_layout)
+
+    def show(self) -> None:
+        super(HandFrame, self).show()
+        self.update_ui()
+
+    def update_ui(self):
+        game = Game()
+
+        # Update the hand
+        hand = game.get_hand(self.player)
+        for i, card in enumerate(self.hand_slots):
+            card.setText(hand[i])
+
+        # Update the objectives
+        for i, obj in enumerate(game.objectives[self.player - 1]):
+            for j in range(2):
+                self.objectives[i][j].setText(obj[j])
+
+
+class PlayerChoiceFrame(QtWidgets.QFrame):
+    """Class for the player choice frame"""
+
+    def __init__(self, master: QWidget, callback_player1, callback_player2) -> None:
+        super(PlayerChoiceFrame, self).__init__(master)
+        button_width = 200
+        button_height = 50
+
+        self.setGeometry(master.rect())
+
+        # self.setStyleSheet("border: 1px solid red;")
+
+        self.layout = QtWidgets.QHBoxLayout(self)
+
+        button_player1 = Button(self, "Player 1", callback_player1, 0,
+                                0, button_width, button_height)
+        button_player1.setMaximumWidth(button_width)
+        button_player1.setMinimumHeight(50)
+        button_player2 = Button(self, "Player 2", callback_player2, 0,
+                                0, button_width, button_height)
+        button_player2.setMaximumWidth(button_width)
+        button_player2.setMinimumHeight(50)
+
+        self.layout.addWidget(button_player1)
+        self.layout.addWidget(button_player2)
+
+        self.setLayout(self.layout)
 
 
 class CurrentStateFrame(QtWidgets.QFrame, AbstractObserverUI):
@@ -293,16 +340,16 @@ class UiMainWindow(QtWidgets.QMainWindow):
         self.board_widget = QtWidgets.QWidget(self.contentWidget)
         self.board_layout = QtWidgets.QHBoxLayout()
 
-        self.uiButtonPlayer = UiButtonsPlayer(self.centralWidget)
-        self.board = Board(self.centralWidget)
-        self.states_ui = CurrentStateFrame(self.centralWidget)
+        self.uiButtonPlayer = UiButtonsPlayer(self.contentWidget)
+        self.board = Board(self.contentWidget)
+        self.states_ui = CurrentStateFrame(self.contentWidget)
 
         self.add_observer(self.uiButtonPlayer)
         self.add_observer(self.states_ui)
         self.add_observer(self.board)
 
-        self.layout.addWidget(self.uiButtonPlayer)
-        self.layout.addWidget(self.board_widget)
+        self.layout.addWidget(self.uiButtonPlayer, 5)
+        self.layout.addWidget(self.board_widget, 6)
 
         self.board_layout.addWidget(self.board, 5)
         self.board_layout.addWidget(self.states_ui, 1)
@@ -313,8 +360,10 @@ class UiMainWindow(QtWidgets.QMainWindow):
     def setup(self):
         self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.setStyleSheet(stylesheet.WINDOW)
+
         self.centralWidget = QtWidgets.QWidget(self)
         self.contentWidget = QtWidgets.QWidget(self.centralWidget)
+
         self.centralWidget.setStyleSheet(stylesheet.GLOBAL_STYLES)
         self.setCentralWidget(self.centralWidget)
         self.setWindowTitle("QICS Quantum board game")
