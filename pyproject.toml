@@ -1,22 +1,18 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "QICS_BG"
-version = "0.0.1"
-authors = [
-  { name="Kim Vallée", email="kim.vallee@lip6.fr" },
-]
-description = "A package for a quantum board game implementation"
+[tool.poetry]
+name = "qicsboardgame"
+version = "0.1.0"
+description = "A package for the Qats board game"
+authors = ["Kim Vallée <kim.vallee@lip6.fr>"]
+license = "MIT License"
 readme = "README.md"
-requires-python = ">=3.7"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
 
-[project.urls]
-"Homepage" = "https://github.com/Kim-Vallee/QICSBoardGame"
-"Bug Tracker" = "https://github.com/Kim-Vallee/QICSBoardGame/issues"
+[tool.poetry.dependencies]
+python = ">=3.10"
+numpy = "^1.26.4"
+pygame = "^2.5.2"
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
